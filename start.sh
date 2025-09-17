@@ -24,9 +24,30 @@ then
     esac
 fi
 
-echo "Installing Node Modules..."
-export NODE_ENV=production
-npm i --no-audit --no-fund --loglevel=error --no-progress --omit=dev
+# 检查是否需要安装依赖
+NEED_INSTALL=false
+
+if [ ! -d "node_modules" ]; then
+    NEED_INSTALL=true
+    echo "node_modules directory not found."
+elif [ ! -f "package-lock.json" ]; then
+    NEED_INSTALL=true
+    echo "package-lock.json not found."
+elif [ "package.json" -nt "package-lock.json" ]; then
+    NEED_INSTALL=true
+    echo "package.json is newer than package-lock.json."
+elif [ "package-lock.json" -nt "node_modules" ]; then
+    NEED_INSTALL=true
+    echo "package-lock.json is newer than node_modules."
+fi
+
+if [ "$NEED_INSTALL" = true ]; then
+    echo "Installing/Updating Node Modules..."
+    export NODE_ENV=production
+    npm i --no-audit --no-fund --loglevel=error --no-progress --omit=dev
+else
+    echo "Dependencies are up to date, skipping npm install."
+fi
 
 echo "Entering SillyTavern..."
-node "server.js" "$@"
+node --max-old-space-size=14336 "server.js" "$@"
