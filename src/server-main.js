@@ -4,6 +4,7 @@ import util from 'node:util';
 import net from 'node:net';
 import dns from 'node:dns';
 import process from 'node:process';
+import fs from 'node:fs/promises';
 
 import cors from 'cors';
 import { csrfSync } from 'csrf-sync';
@@ -46,7 +47,6 @@ import multerMonkeyPatch from './middleware/multerMonkeyPatch.js';
 import initRequestProxy from './request-proxy.js';
 import cacheBuster from './middleware/cacheBuster.js';
 import corsProxyMiddleware from './middleware/corsProxy.js';
-import hostWhitelistMiddleware from './middleware/hostWhitelist.js';
 import {
     getVersion,
     color,
@@ -116,8 +116,6 @@ if (cliArgs.whitelistMode) {
     const whitelistMiddleware = await getWhitelistMiddleware();
     app.use(whitelistMiddleware);
 }
-
-app.use(hostWhitelistMiddleware);
 
 if (cliArgs.listen) {
     app.use(accessLoggerMiddleware());
@@ -216,6 +214,27 @@ app.get('/login', loginPageMiddleware);
 const webpackMiddleware = getWebpackServeMiddleware();
 app.use(webpackMiddleware);
 app.use(express.static(path.join(serverDirectory, 'public'), {}));
+
+// Endpoint to get login background images
+app.get('/get-login-backgrounds', async (req, res) => {
+    const baseDir = path.join(serverDirectory, 'public', '图库');
+    const landscapeDir = path.join(baseDir, '横屏');
+    const portraitDir = path.join(baseDir, '竖屏');
+
+    try {
+        const landscapeFiles = await fs.readdir(landscapeDir);
+        const portraitFiles = await fs.readdir(portraitDir);
+
+        res.json({
+            landscape: landscapeFiles.filter(file => /\.(jpe?g|png|gif|webp)$/i.test(file)),
+            portrait: portraitFiles.filter(file => /\.(jpe?g|png|gif|webp)$/i.test(file))
+        });
+    } catch (error) {
+        console.error('Error reading background image directories:', error);
+        // If the directories don't exist, return empty arrays
+        res.json({ landscape: [], portrait: [] });
+    }
+});
 
 // Public API
 app.use('/api/users', usersPublicRouter);
